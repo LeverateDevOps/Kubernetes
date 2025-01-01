@@ -1,0 +1,102 @@
+# Input and Output Files
+$inputFile = "C:\K8S\UnreachableDomains\PROD-AllIngressDomain26-12-24.txt"
+$outputFile = "C:\K8S\UnreachableDomains\PROD-DomainsDNSResolve-26-12-24.txt"
+
+# Check if input file exists
+if (-Not (Test-Path -Path $inputFile)) {
+    Write-Host "Input file not found: $inputFile" -ForegroundColor Red
+    exit
+}
+
+# Read the input file
+$ingressData = Get-Content $inputFile -Raw
+
+# Split by namespaces and ingress blocks (assuming blocks are separated by empty lines)
+$blocks = $ingressData -split "(?m)^\s*$"  # Split by empty lines
+
+# Initialize output
+$output = @()
+
+# Start processing
+Write-Host "Starting DNS resolution checks..." -ForegroundColor Cyan
+
+foreach ($block in $blocks) {
+    # Skip empty blocks
+    if ([string]::IsNullOrWhiteSpace($block)) {
+        continue
+    }
+
+    try {
+        # Parse Namespace and Ingress
+        if ($block -match "Namespace:\s*(.*)") {
+            $namespace = $matches[1].Trim()
+        } else {
+            $namespace = "Unknown"
+        }
+
+        if ($block -match "Ingress:\s*(.*)") {
+            $ingress = $matches[1].Trim()
+        } else {
+            $ingress = "Unknown"
+        }
+
+        if ($block -match "Domains:\s*(.*)") {
+            $domains = $matches[1] -split ",\s*"
+        } else {
+            $domains = @()
+        }
+
+        # Initialize an array to track unreachable domains
+        $unreachableDomains = @()
+
+        foreach ($domain in $domains) {
+            # Trim the domain to remove any leading/trailing whitespace
+            $domain = $domain.Trim()
+
+            # Display progress
+            Write-Host "----------------------------------------" -ForegroundColor DarkGray
+            Write-Host "Processing Domain: $domain" -ForegroundColor Blue
+
+            # Initialize response variable
+            $dnsResolved = $false
+
+            # Perform DNS resolution check
+            Write-Host "Attempting to resolve DNS for: $domain" -ForegroundColor Yellow
+            try {
+                Resolve-DnsName -Name $domain -ErrorAction Stop | Out-Null
+                Write-Host "DNS resolution successful for: $domain" -ForegroundColor Green
+                $dnsResolved = $true
+            } catch {
+                Write-Host "DNS resolution failed for: $domain - $_" -ForegroundColor Red
+            }
+
+            # If DNS resolution failed, add to unreachable list
+            if (-not $dnsResolved) {
+                Write-Host "Domain marked as UNREACHABLE: $domain" -ForegroundColor Red
+                $unreachableDomains += $domain
+            } else {
+                Write-Host "Domain is REACHABLE: $domain" -ForegroundColor Green
+            }
+        }
+
+        # Add namespace, ingress, and unreachable domains to output
+        if ($unreachableDomains.Count -gt 0) {
+            $output += "Namespace: $namespace"
+            $output += "Ingress: $ingress"
+            $output += "Unreachable Domains: $($unreachableDomains -join ', ')"
+            $output += "----------------------------------------" # Separator for readability
+        }
+    } catch {
+        # Log the error and move on to the next block
+        Write-Host "Error processing block for Namespace: $namespace, Ingress: $ingress - $_" -ForegroundColor Red
+        $output += "Error processing block for Namespace: $namespace, Ingress: $ingress"
+        $output += "----------------------------------------"
+    }
+}
+
+# Write output to file
+$output | Set-Content $outputFile -Encoding UTF8
+
+Write-Host "----------------------------------------" -ForegroundColor DarkGray
+Write-Host "DNS resolution checks completed." -ForegroundColor Cyan
+Write-Host "Results have been saved to $outputFile" -ForegroundColor Green
