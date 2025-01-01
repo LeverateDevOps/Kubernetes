@@ -1,0 +1,4 @@
+kubectl get ingress -A -o jsonpath="{range .items[*]}Namespace: {.metadata.namespace}{'\n'}Ingress: {.metadata.name}{'\n'}Domains: {range .spec.rules[*]}{.host}{', '}{end}{'\n\n'}{end}" > C:\K8S\PROD-AllI
+ngressDomain.txt.txt 
+powershell -Command "(Get-Content C:\K8S\DEV-AllIngressDomain.txt) -replace ', $', '' | Set-Content C:\K8S\PROD-AllI
+ngressDomain.txt" 
