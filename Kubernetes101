@@ -1,5 +1,8 @@
 Essential Kubernetes Concepts
+
 1. Pods
+
+
 Definition
 A Pod is the smallest and simplest Kubernetes object. It represents a single instance of a running process in your cluster and can contain one or more containers, such as Docker containers. Containers within a pod share the same network namespace and storage, allowing them to communicate efficiently and share resources.
 
